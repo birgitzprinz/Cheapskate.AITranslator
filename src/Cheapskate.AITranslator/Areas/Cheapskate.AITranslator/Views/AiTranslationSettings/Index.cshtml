@@ -1,0 +1,123 @@
+@using EPiServer.Shell
+@using EPiServer.Shell.Navigation
+@using EPiServer.Shell.Web.Mvc.Html
+@using EPiServer.Framework.Web.Resources
+@addTagHelper *, EPiServer.Shell.UI
+@addTagHelper *, Microsoft.AspNetCore.Mvc.TagHelpers
+
+@model Cheapskate.AITranslator.Models.AiTranslationSettings
+@using EPiServer.Framework.Localization
+@{
+    Layout = string.Empty;
+    var ls = LocalizationService.Current;
+    var localizationPath = "/plugins/cheapskateaitranslator/";
+    ViewData["Title"] = ls.GetString(localizationPath + "settingsTitle");
+}
+<!doctype html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <title>@ViewData["Title"]</title>
+    <style>
+        body { font: 14px sans-serif; margin: 0; }
+        .ai-translator-content { padding: 32px; max-width: 760px; }
+        label { display: block; margin-top: 16px; font-weight: 600; }
+        input, select { width: 100%; padding: 7px; box-sizing: border-box; }
+        input[type=checkbox] { width: auto; margin-right: 6px; }
+        button { margin-top: 22px; padding: 8px 18px; }
+        .help { color: #666; font-weight: normal; font-size: 12px; }
+        .setup-guide { margin-top: 24px; padding: 16px; background: #f4f6f8; border-left: 4px solid #5b6b7a; }
+        .setup-guide p { margin: 8px 0 0; }
+        .save-actions { margin-top: 24px; }
+        .save-actions button { margin-top: 0; }
+    </style>
+</head>
+<body>
+    @Html.CreatePlatformNavigationMenu()
+    <div @Html.ApplyPlatformNavigation()>
+        <main class="ai-translator-content">
+            <h1>@ls.GetString(localizationPath + "displayname")</h1>
+            <p class="description">@ls.GetString(localizationPath + "description")</p>
+            <form action="/cheapskate/ai-translator/settings" method="post">
+                @Html.AntiForgeryToken()
+                <label><input asp-for="Enabled" type="checkbox" /> @ls.GetString(localizationPath + "enable")</label>
+
+                <div id="translation-settings">
+                    <label asp-for="Provider">@ls.GetString(localizationPath + "translationService")</label>
+                    <select asp-for="Provider" id="provider">
+                        <option value="GeminiFlashLite">@ls.GetString(localizationPath + "gemini")</option>
+                        <option value="AzureTranslator">@ls.GetString(localizationPath + "azure")</option>
+                        <option value="DeepLFree">@ls.GetString(localizationPath + "deepl")</option>
+                        <option value="GroqCloud">@ls.GetString(localizationPath + "groq")</option>
+                        <option value="Other">@ls.GetString(localizationPath + "other")</option>
+                    </select>
+
+                    <label asp-for="ApiKey">@ls.GetString(localizationPath + "apiKey")</label>
+                    <input id="ApiKey" name="ApiKey" value="@Model.ApiKey" type="password" autocomplete="off" />
+                    <span class="help">@ls.GetString(localizationPath + "preconfiguredHelp")</span>
+
+                    <div id="azure-settings">
+                        <label asp-for="AzureRegion">@ls.GetString(localizationPath + "azureRegion")</label>
+                        <input id="AzureRegion" name="AzureRegion" value="@Model.AzureRegion" autocomplete="off" />
+                        <span class="help">@ls.GetString(localizationPath + "azureRegionHelp")</span>
+                    </div>
+
+                    <div id="other-settings">
+                        <label asp-for="Endpoint">@ls.GetString(localizationPath + "endpoint")</label>
+                        <input asp-for="Endpoint" />
+                    </div>
+
+                    <div id="model-settings">
+                        <label asp-for="Model">@ls.GetString(localizationPath + "model")</label>
+                        <input asp-for="Model" />
+                        <label asp-for="MaxInputTokens">@ls.GetString(localizationPath + "maxInputTokens")</label>
+                        <input asp-for="MaxInputTokens" min="256" />
+                        <label asp-for="MaxOutputTokens">@ls.GetString(localizationPath + "maxOutputTokens")</label>
+                        <input asp-for="MaxOutputTokens" min="64" />
+                    </div>
+
+                    <label><input asp-for="ConserveApiCalls" type="checkbox" /> @ls.GetString(localizationPath + "conserveApiCalls")</label>
+
+                    <section class="setup-guide" aria-labelledby="setup-guide-title">
+                        <strong id="setup-guide-title">@ls.GetString(localizationPath + "setupGuide")</strong>
+                        <p id="provider-guide"></p>
+                        <p>@ls.GetString(localizationPath + "generalGuide")</p>
+                    </section>
+                </div>
+                <div class="save-actions">
+                    <button type="submit">@ls.GetString(localizationPath + "save")</button>
+                </div>
+            </form>
+        </main>
+    </div>
+    <script>
+        (function () {
+            var provider = document.getElementById("provider");
+            var other = document.getElementById("other-settings");
+            var modelSettings = document.getElementById("model-settings");
+            var azure = document.getElementById("azure-settings");
+            var enabled = document.getElementById("Enabled");
+            var translationSettings = document.getElementById("translation-settings");
+            var providerGuide = document.getElementById("provider-guide");
+            var guides = {
+                GeminiFlashLite: "@Html.Raw(ls.GetString(localizationPath + "geminiGuide"))",
+                AzureTranslator: "@Html.Raw(ls.GetString(localizationPath + "azureGuide"))",
+                DeepLFree: "@Html.Raw(ls.GetString(localizationPath + "deeplGuide"))",
+                GroqCloud: "@Html.Raw(ls.GetString(localizationPath + "groqGuide"))",
+                Other: "@Html.Raw(ls.GetString(localizationPath + "otherGuide"))"
+            };
+            function update() {
+                translationSettings.style.display = enabled.checked ? "block" : "none";
+                other.style.display = provider.value === "Other" ? "block" : "none";
+                modelSettings.style.display = ["GeminiFlashLite", "GroqCloud", "Other"].indexOf(provider.value) >= 0 ? "block" : "none";
+                azure.style.display = provider.value === "AzureTranslator" ? "block" : "none";
+                providerGuide.textContent = guides[provider.value] || "";
+            }
+            enabled.addEventListener("change", update);
+            provider.addEventListener("change", update);
+            update();
+        }());
+    </script>
+    @ClientResources.RenderResources("admin", new[] { ClientResourceType.Script })
+</body>
+</html>

@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<languages>
+  <language name="English" id="EN">
+    <plugins>
+      <cheapskateaitranslator>
+        <displayname>AI Translator</displayname>
+        <settingsTitle>AI Translator settings</settingsTitle>
+        <description>Create draft language versions and optionally translate their language-specific text properties with an AI or translation provider.</description>
+        <enable>Enable AI translation</enable>
+        <translationService>Translation service</translationService>
+        <apiKey>API key</apiKey>
+        <preconfiguredHelp>Leave the masked value unchanged to keep the saved key, or enter a new key.</preconfiguredHelp>
+        <azureRegion>Azure region</azureRegion>
+        <azureRegionHelp>Required for regional or multi-service Azure Translator resources, for example westeurope. Leave empty for a global Translator resource when supported.</azureRegionHelp>
+        <endpoint>AI endpoint</endpoint>
+        <model>AI model</model>
+        <modelHelp>Enter the model identifier supported by the selected provider. Suggestions are provided for common models.</modelHelp>
+        <maxInputTokens>Maximum input tokens</maxInputTokens>
+        <maxOutputTokens>Maximum output tokens</maxOutputTokens>
+        <conserveApiCalls>Conserve API calls by grouping properties into bounded prompts</conserveApiCalls>
+        <save>Save settings</save>
+        <gemini>Google Gemini</gemini>
+        <azure>Microsoft Azure Translator</azure>
+        <deepl>DeepL API Free</deepl>
+        <groq>GroqCloud API</groq>
+        <other>Other</other>
+        <setupGuide>Setup guide</setupGuide>
+        <geminiGuide>Google Gemini: create an API key in Google AI Studio, then use the prefilled Google Generative Language endpoint and enter a model supported by your account. Gemini 3.5 Flash-Lite is suggested by default.</geminiGuide>
+        <azureGuide>Azure Translator: create a Translator resource in Azure, copy its subscription key, and use the endpoint for your resource region. Add the region to a custom endpoint when required.</azureGuide>
+        <deeplGuide>DeepL: create an API key in the DeepL account settings. The free service uses the prefilled api-free.deepl.com endpoint.</deeplGuide>
+        <groqGuide>GroqCloud: create an API key in the Groq console. Use the prefilled endpoint and choose a model available to your account.</groqGuide>
+        <otherGuide>Other: enter an OpenAI-compatible chat-completions endpoint, API key, and model. The endpoint must accept the standard chat-completions request format.</otherGuide>
+        <generalGuide>Keys are stored in the CMS settings store. Keep this page restricted to trusted CMS administrators.</generalGuide>
+      </cheapskateaitranslator>
+    </plugins>
+  </language>
+</languages>

@@ -1,0 +1,30 @@
+# Build output
+[Bb]in/
+[Oo]bj/
+
+# Visual Studio and VS Code
+.vs/
+.vscode/*
+!.vscode/README.md
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Test and tooling output
+TestResults/
+.coverage
+coverage/
+
+# NuGet and package artifacts
+artifacts/
+*.nupkg
+*.snupkg
+
+# Generated local module staging
+src/Cheapskate.AITranslator/obj/_module_staging/
+
+# Local environment and secrets
+.env
+.env.*
+!.env.example

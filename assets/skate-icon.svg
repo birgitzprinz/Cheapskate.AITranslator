@@ -1,0 +1,90 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" preserveAspectRatio="xMidYMid meet" role="img" aria-labelledby="title desc">
+  <title id="title">Cheapskate AI Translator skate</title>
+  <desc id="desc">A technical blue skate fish icon on a white background.</desc>
+  <defs>
+    <linearGradient id="bodyGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#38bdf8" />
+      <stop offset="40%" stop-color="#0284c7" />
+      <stop offset="100%" stop-color="#0369a1" />
+    </linearGradient>
+    <linearGradient id="wingHighlight" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#7dd3fc" stop-opacity="0.8" />
+      <stop offset="50%" stop-color="#38bdf8" stop-opacity="0.2" />
+      <stop offset="100%" stop-color="#7dd3fc" stop-opacity="0.8" />
+    </linearGradient>
+    <linearGradient id="spineGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#bae6fd" />
+      <stop offset="50%" stop-color="#38bdf8" />
+      <stop offset="100%" stop-color="#0284c7" />
+    </linearGradient>
+    <filter id="dropShadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="8" stdDeviation="8" flood-color="#0f172a" flood-opacity="0.18" />
+    </filter>
+    <filter id="cyanGlow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="4" result="blur" />
+      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+    </filter>
+  </defs>
+
+  <rect width="512" height="512" rx="112" fill="#ffffff" />
+
+  <g stroke="#bae6fd" stroke-width="1.5" opacity="0.45">
+    <line x1="256" y1="40" x2="256" y2="472" stroke-dasharray="8 8" />
+    <line x1="40" y1="256" x2="472" y2="256" stroke-dasharray="8 8" />
+    <circle cx="256" cy="256" r="140" fill="none" stroke-dasharray="4 6" />
+    <circle cx="256" cy="256" r="200" fill="none" />
+  </g>
+
+  <g filter="url(#dropShadow)">
+    <path d="M256 310C252 360 248 410 250 455C251 465 256 472 256 472C256 472 261 465 262 455C264 410 260 360 256 310Z" fill="#0284c7" />
+    <path d="M256 310L256 468" stroke="#7dd3fc" stroke-width="3" stroke-linecap="round" opacity="0.8" />
+    <path d="M256 390C263 395 266 405 256 412C246 405 249 395 256 390Z" fill="#38bdf8" />
+    <path d="M256 422C261 426 264 433 256 438C248 433 251 426 256 422Z" fill="#38bdf8" />
+
+    <path d="M216 310C190 325 185 355 210 365C230 373 245 330 256 315C267 330 282 373 302 365C327 355 322 325 296 310Z" fill="#0369a1" />
+    <path d="M216 310C195 325 195 348 212 355C228 360 242 330 252 315" fill="none" stroke="#38bdf8" stroke-width="2" opacity="0.6" />
+    <path d="M296 310C317 325 317 348 300 355C284 360 270 330 260 315" fill="none" stroke="#38bdf8" stroke-width="2" opacity="0.6" />
+
+    <path d="M256 50C270 70 340 160 440 215C475 234 470 260 435 275C380 298 305 320 256 325C207 320 132 298 77 275C42 260 37 234 72 215C172 160 242 70 256 50Z" fill="url(#bodyGrad)" />
+    <path d="M256 50C268 68 320 135 400 190C435 214 458 230 445 248C420 230 360 180 256 120C152 180 92 230 67 248C54 230 77 214 112 190C192 135 244 68 256 50Z" fill="url(#wingHighlight)" />
+    <path d="M256 50L440 215L350 265L256 325L162 265L72 215Z" fill="none" stroke="#7dd3fc" stroke-width="2" stroke-opacity="0.4" />
+    <path d="M256 120L435 275M256 120L77 275" fill="none" stroke="#0284c7" stroke-width="2" stroke-opacity="0.5" />
+    <path d="M256 75C275 120 325 190 350 240C360 260 330 275 256 285C182 275 152 260 162 240C187 190 237 120 256 75Z" fill="#0284c7" opacity="0.6" />
+    <path d="M256 50L256 325" stroke="url(#spineGrad)" stroke-width="4" stroke-linecap="round" />
+    <path d="M256 100L262 140L256 290L250 140Z" fill="url(#spineGrad)" opacity="0.8" />
+
+    <circle cx="232" cy="125" r="7" fill="#0c4a6e" />
+    <circle cx="232" cy="125" r="4" fill="#38bdf8" />
+    <circle cx="230" cy="123" r="1.5" fill="#ffffff" />
+    <circle cx="280" cy="125" r="7" fill="#0c4a6e" />
+    <circle cx="280" cy="125" r="4" fill="#38bdf8" />
+    <circle cx="282" cy="123" r="1.5" fill="#ffffff" />
+
+    <g stroke="#7dd3fc" stroke-width="2" stroke-linecap="round" opacity="0.6">
+      <line x1="220" y1="160" x2="195" y2="175" />
+      <line x1="215" y1="180" x2="185" y2="200" />
+      <line x1="210" y1="200" x2="175" y2="225" />
+      <line x1="205" y1="220" x2="170" y2="250" />
+      <line x1="292" y1="160" x2="317" y2="175" />
+      <line x1="297" y1="180" x2="327" y2="200" />
+      <line x1="302" y1="200" x2="337" y2="225" />
+      <line x1="307" y1="220" x2="342" y2="250" />
+    </g>
+
+    <g fill="#e0f2fe" filter="url(#cyanGlow)">
+      <circle cx="256" cy="75" r="3" />
+      <circle cx="256" cy="110" r="2.5" />
+      <circle cx="256" cy="145" r="2.5" />
+      <circle cx="256" cy="180" r="2.5" />
+      <circle cx="256" cy="215" r="2" />
+      <circle cx="256" cy="250" r="2" />
+      <circle cx="310" cy="190" r="2" opacity="0.8" />
+      <circle cx="340" cy="220" r="2.5" opacity="0.8" />
+      <circle cx="370" cy="240" r="2" opacity="0.8" />
+      <circle cx="202" cy="190" r="2" opacity="0.8" />
+      <circle cx="172" cy="220" r="2.5" opacity="0.8" />
+      <circle cx="142" cy="240" r="2" opacity="0.8" />
+    </g>
+    <polygon points="256,42 260,52 252,52" fill="#38bdf8" filter="url(#cyanGlow)" />
+  </g>
+</svg>

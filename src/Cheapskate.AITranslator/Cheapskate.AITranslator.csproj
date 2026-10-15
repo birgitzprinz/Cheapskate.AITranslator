@@ -1,0 +1,43 @@
+﻿<Project Sdk="Microsoft.NET.Sdk.Razor">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AddRazorSupportForMvc>true</AddRazorSupportForMvc>
+    <AssemblyName>Cheapskate.AITranslator</AssemblyName>
+    <RootNamespace>Cheapskate.AITranslator</RootNamespace>
+    <AddonVersion>1.0.10</AddonVersion>
+    <AddonStage>$(ProjectDir)obj\$(Configuration)\$(TargetFramework)\addon\</AddonStage>
+    <AddonZip>$(ProjectDir)bin\$(Configuration)\$(TargetFramework)\$(AssemblyName).zip</AddonZip>
+    <NuspecFile>$(ProjectDir)$(AssemblyName).nuspec</NuspecFile>
+    <NuspecProperties>version=$(AddonVersion);configuration=$(Configuration)</NuspecProperties>
+    <Deterministic>true</Deterministic>
+    <DebugType>portable</DebugType>
+    <DebugSymbols>true</DebugSymbols>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)' == 'Release'">
+    <ContinuousIntegrationBuild>true</ContinuousIntegrationBuild>
+    <Optimize>true</Optimize>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <PackageReference Include="EPiServer.CMS.Core" Version="12.0.0" />
+    <PackageReference Include="EPiServer.CMS.AspNetCore" Version="12.0.0" />
+    <PackageReference Include="EPiServer.CMS.UI.Core" Version="12.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <AddonClientResourceFiles Include="ClientResources\**\*" />
+    <EmbeddedResource Include="EmbeddedLangFiles\Plugins_en.xml" />
+  </ItemGroup>
+
+  <Target Name="CheapskateCreateAddonZip" AfterTargets="Build">
+    <MakeDir Directories="$(OutputPath)" />
+    <Exec Command="pwsh -NonInteractive -File &quot;$(MSBuildProjectDirectory)\Create-ModuleZip.ps1&quot; -Version &quot;$(AddonVersion)&quot; -ProjectDir &quot;$(MSBuildProjectDirectory)&quot; -OutputPath &quot;$(MSBuildProjectDirectory)\bin\$(Configuration)\$(TargetFramework)\$(AssemblyName).zip&quot;" />
+    <Message Importance="High" Text="Optimizely add-on created: $(AddonZip)" />
+  </Target>
+
+</Project>

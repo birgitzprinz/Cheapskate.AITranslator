@@ -1,0 +1,6 @@
+.cheapskate-skate-icon {
+    width: 18px;
+    height: 18px;
+    display: inline-block;
+    background: url("skate-icon.svg") center / contain no-repeat;
+}
