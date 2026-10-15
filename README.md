@@ -2,7 +2,7 @@
 
 <img src="assets/skate-icon.svg" alt="Cheapskate AI Translator skate icon" width="128" />
 
-Optimizely CMS 12 add-on for creating draft language versions and optionally translating language-specific content with Google Gemini, GroqCloud, Azure Translator, DeepL, or a custom OpenAI-compatible provider.
+Optimizely CMS 13 add-on for creating draft language versions and optionally translating language-specific content with Google Gemini, GroqCloud, Azure Translator, DeepL, or a custom OpenAI-compatible provider.
 
 ## Repository scope
 
@@ -10,13 +10,13 @@ This README is the developer and maintainer documentation for the repository. Th
 
 ## Requirements and compatibility
 
-- .NET 8.
-- Optimizely CMS 12.x only. The package dependency range is `>= 12.0.0` and `< 13.0.0`.
+- .NET 10.
+- Optimizely CMS 13.x only. The package dependency range is `>= 13.0.0` and `< 14.0.0`.
 - A CMS application with Shell UI and edit UI packages enabled.
 - At least one configured site language for target language branches.
 - An API key for the selected provider when AI translation is enabled.
 
-CMS 13 is intentionally not supported by this branch because CMS 13 changed the `@Html.CreatePlatformNavigationMenu()` API. CMS 13 support will be developed in a separate branch and package line.
+The `main` branch and 2.x package line target CMS 13 and .NET 10. The `CMS-12-base` branch is the legacy CMS 12 line and remains on the 1.x package line with .NET 8.
 
 ## Features
 
@@ -115,10 +115,10 @@ AiTranslationSettingsController.Index POST
 
 ## Installation and user guide
 
-Install the package into the Optimizely CMS web project:
+Install the package into the Optimizely CMS 13 web project:
 
 ```powershell
-dotnet add .\YourCmsProject.csproj package Cheapskate.AITranslator --version 1.0.10
+dotnet add .\YourCmsProject.csproj package Cheapskate.AITranslator --version 2.0.0
 dotnet restore .\YourCmsProject.csproj
 dotnet build .\YourCmsProject.csproj
 ```

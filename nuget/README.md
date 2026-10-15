@@ -1,23 +1,23 @@
 # Cheapskate.AITranslator
 
-Optimizely CMS 12 add-on for creating draft language versions and optionally translating language-specific text properties through Google Gemini, GroqCloud, Azure Translator, DeepL, or a custom OpenAI-compatible provider.
+Optimizely CMS 13 add-on for creating draft language versions and optionally translating language-specific text properties through Google Gemini, GroqCloud, Azure Translator, DeepL, or a custom OpenAI-compatible provider.
 
 ## Requirements
 
-- .NET 8.
-- Optimizely CMS 12.x.
+- .NET 10.
+- Optimizely CMS 13.x.
 - A CMS application with Shell UI and edit UI packages enabled.
 - At least one configured site language for target language branches.
 - An API key for the selected provider when AI translation is enabled.
 
-This package is compatible with CMS versions `>= 12.0.0` and `< 13.0.0`. CMS 13 is not supported by this package.
+This package is compatible with CMS versions `>= 13.0.0` and `< 14.0.0`. For the legacy CMS 12 package line, use the `CMS-12-base` branch.
 
 ## Installation
 
 Install the package into the Optimizely CMS web project:
 
 ```powershell
-dotnet add .\YourCmsProject.csproj package Cheapskate.AITranslator --version 1.0.10
+dotnet add .\YourCmsProject.csproj package Cheapskate.AITranslator --version 2.0.0
 dotnet restore .\YourCmsProject.csproj
 dotnet build .\YourCmsProject.csproj
 ```

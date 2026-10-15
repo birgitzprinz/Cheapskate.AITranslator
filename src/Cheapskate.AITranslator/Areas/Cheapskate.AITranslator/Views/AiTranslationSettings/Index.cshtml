@@ -1,6 +1,5 @@
 @using EPiServer.Shell
 @using EPiServer.Shell.Navigation
-@using EPiServer.Shell.Web.Mvc.Html
 @using EPiServer.Framework.Web.Resources
 @addTagHelper *, EPiServer.Shell.UI
 @addTagHelper *, Microsoft.AspNetCore.Mvc.TagHelpers
@@ -33,8 +32,8 @@
     </style>
 </head>
 <body>
-    @Html.CreatePlatformNavigationMenu()
-    <div @Html.ApplyPlatformNavigation()>
+    <platform-navigation></platform-navigation>
+    <platform-navigation-wrapper>
         <main class="ai-translator-content">
             <h1>@ls.GetString(localizationPath + "displayname")</h1>
             <p class="description">@ls.GetString(localizationPath + "description")</p>
@@ -89,7 +88,7 @@
                 </div>
             </form>
         </main>
-    </div>
+    </platform-navigation-wrapper>
     <script>
         (function () {
             var provider = document.getElementById("provider");

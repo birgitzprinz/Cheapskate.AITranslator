@@ -1,13 +1,13 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk.Razor">
 
   <PropertyGroup>
-    <TargetFramework>net8.0</TargetFramework>
+    <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <AddRazorSupportForMvc>true</AddRazorSupportForMvc>
     <AssemblyName>Cheapskate.AITranslator</AssemblyName>
     <RootNamespace>Cheapskate.AITranslator</RootNamespace>
-    <AddonVersion>1.0.10</AddonVersion>
+    <AddonVersion>2.0.0</AddonVersion>
     <AddonStage>$(ProjectDir)obj\$(Configuration)\$(TargetFramework)\addon\</AddonStage>
     <AddonZip>$(ProjectDir)bin\$(Configuration)\$(TargetFramework)\$(AssemblyName).zip</AddonZip>
     <NuspecFile>$(ProjectDir)$(AssemblyName).nuspec</NuspecFile>
@@ -24,9 +24,9 @@
 
   <ItemGroup>
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
-    <PackageReference Include="EPiServer.CMS.Core" Version="12.0.0" />
-    <PackageReference Include="EPiServer.CMS.AspNetCore" Version="12.0.0" />
-    <PackageReference Include="EPiServer.CMS.UI.Core" Version="12.0.0" />
+    <PackageReference Include="EPiServer.CMS.Core" Version="13.0.0" />
+    <PackageReference Include="EPiServer.CMS.AspNetCore" Version="13.0.0" />
+    <PackageReference Include="EPiServer.CMS.UI.Core" Version="13.0.0" />
   </ItemGroup>
 
   <ItemGroup>
