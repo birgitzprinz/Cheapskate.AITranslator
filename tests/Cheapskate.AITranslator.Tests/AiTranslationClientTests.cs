@@ -30,6 +30,8 @@ public sealed class AiTranslationClientTests
         Assert.Equal("Hallo", result["Title|42"]);
         Assert.Equal("Bearer", handler.Request!.Headers.Authorization!.Scheme);
         Assert.Equal(settings.ApiKey, handler.Request.Headers.Authorization.Parameter);
+        Assert.Contains("every visible text node inside HTML", handler.RequestBody);
+        Assert.Contains("same tags, nesting, order, attributes", handler.RequestBody);
     }
 
     [Fact]
