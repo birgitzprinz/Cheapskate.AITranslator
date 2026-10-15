@@ -6,6 +6,8 @@
     <authors>Linh Doan</authors>
     <description>Optimizely CMS 12 add-on for creating draft language versions and optionally translating language-specific text properties through Google Gemini, Groq, Azure Translator, DeepL, or a custom provider.</description>
     <summary>Optimizely CMS language-version cloning with optional background AI translation.</summary>
+    <projectUrl>https://github.com/birgitzprinz/Cheapskate.AITranslator</projectUrl>
+    <repository type="git" url="https://github.com/birgitzprinz/Cheapskate.AITranslator.git" />
     <tags>Optimizely CMS EPiServer CMS 12 localization translation AI language versions content editor</tags>
     <license type="expression">MIT</license>
     <readme>README.md</readme>

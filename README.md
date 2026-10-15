@@ -1,6 +1,6 @@
 # Cheapskate.AITranslator
 
-![Cheapskate AI Translator skate icon](assets/skate-icon.svg)
+<img src="assets/skate-icon.svg" alt="Cheapskate AI Translator skate icon" width="128" />
 
 Optimizely CMS 12 add-on for creating draft language versions and optionally translating language-specific content with Google Gemini, GroqCloud, Azure Translator, DeepL, or a custom OpenAI-compatible provider.
 
