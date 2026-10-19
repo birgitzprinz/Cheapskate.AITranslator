@@ -6,6 +6,7 @@
     <authors>Linh Doan</authors>
     <description>Optimizely CMS 13 add-on for creating draft language versions and optionally translating language-specific text properties through Google Gemini, Groq, Azure Translator, DeepL, or a custom provider.</description>
     <summary>Optimizely CMS language-version cloning with optional background AI translation.</summary>
+    <releaseNotes>Version 2.0.1 adds support for translating ExperienceData, including nested UnstructuredData, inline blocks, and optionally linked shared content.</releaseNotes>
     <projectUrl>https://github.com/birgitzprinz/Cheapskate.AITranslator</projectUrl>
     <repository type="git" url="https://github.com/birgitzprinz/Cheapskate.AITranslator.git" />
     <tags>Optimizely CMS EPiServer CMS 13 localization translation AI language versions content editor</tags>
