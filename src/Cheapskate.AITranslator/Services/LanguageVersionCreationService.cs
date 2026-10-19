@@ -4,6 +4,7 @@ using EPiServer.Core;
 using EPiServer.DataAbstraction;
 using EPiServer.DataAccess;
 using EPiServer.Security;
+using EPiServer.SpecializedProperties;
 using Microsoft.Extensions.Logging;
 using Cheapskate.AITranslator.Models;
 
@@ -197,6 +198,7 @@ public class LanguageVersionCreationService : ILanguageVersionCreationService
                     content.ContentLink,
                     targetCulture);
                 var newBranch = CreateWritableContentClone(createdBranch);
+                MarkNonLanguageSpecificPropertiesAsLanguageSpecific(newBranch);
 
                 // Copy the master values before the initial draft save. Translation jobs run later
                 // and obtain a separate writable clone before updating individual properties.
@@ -252,6 +254,15 @@ public class LanguageVersionCreationService : ILanguageVersionCreationService
         }
     }
 
+    private static void MarkNonLanguageSpecificPropertiesAsLanguageSpecific(IContent content)
+    {
+        foreach (var property in content.Property)
+        {
+            if (!property.IsLanguageSpecific && !property.IsMetaData && !property.IsReadOnly)
+                property.IsLanguageSpecific = true;
+        }
+    }
+
     private void CopyLanguageSpecificProperties(
         IContent masterContent,
         IContent targetContent,
@@ -270,93 +281,75 @@ public class LanguageVersionCreationService : ILanguageVersionCreationService
             targetContent.Name = masterContent.Name;
         }
 
-        foreach (var propDef in contentType.PropertyDefinitions)
+        foreach (var targetProp in targetContent.Property.Where(property =>
+                     property.IsLanguageSpecific
+                     && !property.IsMetaData
+                     && !property.IsReadOnly))
         {
-            var selectionFactoryDetected = HasSelectionFactory(masterContent, propDef);
+            var propertyDefinition = contentType.PropertyDefinitions.FirstOrDefault(definition =>
+                definition.Name.Equals(targetProp.Name, StringComparison.OrdinalIgnoreCase));
+            var selectionFactoryDetected = propertyDefinition != null
+                && HasSelectionFactory(masterContent, propertyDefinition);
             _logger.LogInformation(
                 "AI translation property inspection: content type {ContentType}, runtime type {RuntimeType}, property {PropertyName}, language specific {LanguageSpecific}, selection factory {SelectionFactory}, CLR attributes {Attributes}",
                 contentType.Name,
                 masterContent.GetType().FullName,
-                propDef.Name,
-                propDef.LanguageSpecific,
+                targetProp.Name,
+                targetProp.IsLanguageSpecific,
                 selectionFactoryDetected,
-                GetPropertyAttributeNames(masterContent.GetType(), propDef.Name));
+                GetPropertyAttributeNames(masterContent.GetType(), targetProp.Name));
 
-            var masterProp = masterContent.Property[propDef.Name];
-            var targetProp = targetContent.Property[propDef.Name];
+            var masterProp = masterContent.Property[targetProp.Name];
 
             if (selectionFactoryDetected)
             {
-                _logger.LogInformation("AI translation property skipped: {PropertyName}; selection factory detected", propDef.Name);
+                _logger.LogInformation("AI translation property skipped: {PropertyName}; selection factory detected", targetProp.Name);
                 continue;
             }
 
-            if (masterProp == null || targetProp == null || targetProp.IsReadOnly)
+            if (masterProp == null)
             {
                 _logger.LogInformation(
                     "AI translation property skipped: {PropertyName}; master property missing {MasterMissing}, target property missing {TargetMissing}, target read-only {TargetReadOnly}",
-                    propDef.Name,
+                    targetProp.Name,
                     masterProp == null,
-                    targetProp == null,
-                    targetProp?.IsReadOnly == true);
+                    false,
+                    targetProp.IsReadOnly);
                 continue;
             }
 
             if (masterProp.Value == null)
             {
-                _logger.LogInformation("AI translation property skipped: {PropertyName}; value is null", propDef.Name);
-                continue;
-            }
-
-            var isLocalBlock = masterProp.Value is BlockData;
-            if (!propDef.LanguageSpecific && !isLocalBlock)
-            {
-                _logger.LogInformation("AI translation property skipped: {PropertyName}; not language specific and not a local block", propDef.Name);
-                continue;
-            }
-
-            if (isLocalBlock)
-            {
-                _logger.LogInformation("AI translation local block discovered: {PropertyName}; traversing all nested properties", propDef.Name);
-                targetProp.Value = CloneMasterPropertyValue(masterProp.Value);
-                if (useAiTranslation)
-                {
-                    CollectNestedBlockTranslations(
-                        masterProp.Value,
-                        propDef.Name,
-                        targetContent.ContentLink,
-                        targetCulture,
-                        translationItems,
-                        tone);
-                }
+                _logger.LogInformation("AI translation property skipped: {PropertyName}; value is null", targetProp.Name);
                 continue;
             }
 
             targetProp.Value = CloneMasterPropertyValue(masterProp.Value);
             if (useAiTranslation
-                && masterProp.Value is not ContentArea
-                && TryGetTranslatableText(masterProp.Value, out var sourceText)
-                && !IsUrl(sourceText))
+                && !IsNotTranslatable(targetProp)
+                && !IsExcludedProperty(targetContent, targetProp))
             {
-                translationItems.Add(new TranslationWorkItem(
-                    string.Empty,
-                    targetContent.ContentLink,
-                    targetCulture.Name,
-                    propDef.Name,
-                    sourceText,
-                    tone));
-                _logger.LogInformation("AI translation property queued: {PropertyName}; value type {ValueType}", propDef.Name, masterProp.Value.GetType().FullName);
+                if (TryGetTranslatableText(masterProp.Value, out var sourceText) && !IsUrl(sourceText))
+                {
+                    translationItems.Add(new TranslationWorkItem(
+                        string.Empty,
+                        targetContent.ContentLink,
+                        targetCulture.Name,
+                        targetProp.Name,
+                        sourceText,
+                        tone));
+                }
             }
             else
             {
-                _logger.LogInformation("AI translation property not queued: {PropertyName}; value type {ValueType}", propDef.Name, masterProp.Value.GetType().FullName);
+                _logger.LogInformation("AI translation property not queued: {PropertyName}; value type {ValueType}", targetProp.Name, masterProp.Value.GetType().FullName);
             }
 
             if (useAiTranslation)
             {
                 CollectNestedBlockTranslations(
                     masterProp.Value,
-                    propDef.Name,
+                    targetProp.Name,
                     targetContent.ContentLink,
                     targetCulture,
                     translationItems,
@@ -404,7 +397,9 @@ public class LanguageVersionCreationService : ILanguageVersionCreationService
                 continue;
             }
 
-            if (TryGetTranslatableText(nestedValue, out var sourceText) && !IsUrl(sourceText))
+            if (!IsNotTranslatable(property)
+                && TryGetTranslatableText(nestedValue, out var sourceText)
+                && !IsUrl(sourceText))
             {
                 translationItems.Add(new TranslationWorkItem(
                     string.Empty,
@@ -624,6 +619,22 @@ public class LanguageVersionCreationService : ILanguageVersionCreationService
 
     private static bool HasSelectionFactory(IContent content, PropertyDefinition propertyDefinition) =>
         HasSelectionFactory(content.GetType(), propertyDefinition.Name);
+
+    private static bool IsNotTranslatable(PropertyData property) =>
+        property is PropertyDropDownList
+            || property is PropertyUrl
+            || property is PropertyDate
+            || property is PropertyAppSettings
+            || property is PropertyAppSettingsMultiple
+            || property is PropertyCheckBoxList
+            || property is PropertyLanguage
+            || property is PropertyTimeSpan
+            || property is PropertyBlob
+            || property is PropertySelector;
+
+    private static bool IsExcludedProperty(IContent content, PropertyData property) =>
+        string.Equals(content.ContentLink.ProviderName, "CatalogContent", StringComparison.OrdinalIgnoreCase)
+        && string.Equals(property.Name, "SeoUri", StringComparison.OrdinalIgnoreCase);
 
     private static bool HasSelectionFactory(Type contentType, string propertyName)
     {
