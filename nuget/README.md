@@ -17,7 +17,7 @@ This package is compatible with CMS versions `>= 13.0.0` and `< 14.0.0`. For the
 Install the package into the Optimizely CMS web project:
 
 ```powershell
-dotnet add .\YourCmsProject.csproj package Cheapskate.AITranslator --version 2.0.0
+dotnet add .\YourCmsProject.csproj package Cheapskate.AITranslator --version 2.0.1
 dotnet restore .\YourCmsProject.csproj
 dotnet build .\YourCmsProject.csproj
 ```

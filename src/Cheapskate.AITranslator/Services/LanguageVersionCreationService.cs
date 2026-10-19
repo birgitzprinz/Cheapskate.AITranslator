@@ -1,9 +1,12 @@
+using System.Collections;
 using System.Globalization;
 using EPiServer;
 using EPiServer.Core;
 using EPiServer.DataAbstraction;
 using EPiServer.DataAccess;
 using EPiServer.Security;
+using EPiServer.SpecializedProperties;
+using EPiServer.VisualBuilder;
 using Microsoft.Extensions.Logging;
 using Cheapskate.AITranslator.Models;
 
@@ -197,6 +200,7 @@ public class LanguageVersionCreationService : ILanguageVersionCreationService
                     content.ContentLink,
                     targetCulture);
                 var newBranch = CreateWritableContentClone(createdBranch);
+                MarkNonLanguageSpecificPropertiesAsLanguageSpecific(newBranch);
 
                 // Copy the master values before the initial draft save. Translation jobs run later
                 // and obtain a separate writable clone before updating individual properties.
@@ -270,98 +274,76 @@ public class LanguageVersionCreationService : ILanguageVersionCreationService
             targetContent.Name = masterContent.Name;
         }
 
-        foreach (var propDef in contentType.PropertyDefinitions)
+        foreach (var targetProp in targetContent.Property.Where(property =>
+            property.IsLanguageSpecific
+            && !property.IsMetaData
+            && !property.IsReadOnly))
         {
-            var selectionFactoryDetected = HasSelectionFactory(masterContent, propDef);
+            var masterProp = masterContent.Property[targetProp.Name];
             _logger.LogInformation(
-                "AI translation property inspection: content type {ContentType}, runtime type {RuntimeType}, property {PropertyName}, language specific {LanguageSpecific}, selection factory {SelectionFactory}, CLR attributes {Attributes}",
+                "AI translation property inspection: content type {ContentType}, runtime type {RuntimeType}, property {PropertyName}, language specific {LanguageSpecific}, metadata {Metadata}, read-only {ReadOnly}, property type {PropertyType}, CLR attributes {Attributes}",
                 contentType.Name,
                 masterContent.GetType().FullName,
-                propDef.Name,
-                propDef.LanguageSpecific,
-                selectionFactoryDetected,
-                GetPropertyAttributeNames(masterContent.GetType(), propDef.Name));
+                targetProp.Name,
+                targetProp.IsLanguageSpecific,
+                targetProp.IsMetaData,
+                targetProp.IsReadOnly,
+                targetProp.GetType().Name,
+                GetPropertyAttributeNames(masterContent.GetType(), targetProp.Name));
 
-            var masterProp = masterContent.Property[propDef.Name];
-            var targetProp = targetContent.Property[propDef.Name];
-
-            if (selectionFactoryDetected)
-            {
-                _logger.LogInformation("AI translation property skipped: {PropertyName}; selection factory detected", propDef.Name);
-                continue;
-            }
-
-            if (masterProp == null || targetProp == null || targetProp.IsReadOnly)
+            if (masterProp == null)
             {
                 _logger.LogInformation(
-                    "AI translation property skipped: {PropertyName}; master property missing {MasterMissing}, target property missing {TargetMissing}, target read-only {TargetReadOnly}",
-                    propDef.Name,
-                    masterProp == null,
-                    targetProp == null,
-                    targetProp?.IsReadOnly == true);
+                    "AI translation property skipped: {PropertyName}; master property missing",
+                    targetProp.Name);
                 continue;
             }
 
             if (masterProp.Value == null)
             {
-                _logger.LogInformation("AI translation property skipped: {PropertyName}; value is null", propDef.Name);
-                continue;
-            }
-
-            var isLocalBlock = masterProp.Value is BlockData;
-            if (!propDef.LanguageSpecific && !isLocalBlock)
-            {
-                _logger.LogInformation("AI translation property skipped: {PropertyName}; not language specific and not a local block", propDef.Name);
-                continue;
-            }
-
-            if (isLocalBlock)
-            {
-                _logger.LogInformation("AI translation local block discovered: {PropertyName}; traversing all nested properties", propDef.Name);
-                targetProp.Value = CloneMasterPropertyValue(masterProp.Value);
-                if (useAiTranslation)
-                {
-                    CollectNestedBlockTranslations(
-                        masterProp.Value,
-                        propDef.Name,
-                        targetContent.ContentLink,
-                        targetCulture,
-                        translationItems,
-                        tone);
-                }
+                _logger.LogInformation("AI translation property skipped: {PropertyName}; value is null", targetProp.Name);
                 continue;
             }
 
             targetProp.Value = CloneMasterPropertyValue(masterProp.Value);
             if (useAiTranslation
-                && masterProp.Value is not ContentArea
-                && TryGetTranslatableText(masterProp.Value, out var sourceText)
-                && !IsUrl(sourceText))
+                && !IsNotTranslatable(targetProp)
+                && !IsExcludedProperty(targetContent, targetProp))
             {
-                translationItems.Add(new TranslationWorkItem(
-                    string.Empty,
-                    targetContent.ContentLink,
-                    targetCulture.Name,
-                    propDef.Name,
-                    sourceText,
-                    tone));
-                _logger.LogInformation("AI translation property queued: {PropertyName}; value type {ValueType}", propDef.Name, masterProp.Value.GetType().FullName);
-            }
-            else
-            {
-                _logger.LogInformation("AI translation property not queued: {PropertyName}; value type {ValueType}", propDef.Name, masterProp.Value.GetType().FullName);
-            }
-
-            if (useAiTranslation)
-            {
-                CollectNestedBlockTranslations(
+                QueueTranslatableValue(
                     masterProp.Value,
-                    propDef.Name,
+                    targetProp.Name,
                     targetContent.ContentLink,
                     targetCulture,
                     translationItems,
                     tone);
             }
+            else
+            {
+                _logger.LogInformation("AI translation property not queued: {PropertyName}; value type {ValueType}", targetProp.Name, masterProp.Value.GetType().FullName);
+            }
+        }
+
+        if (useAiTranslation
+            && masterContent is ExperienceData experienceData
+            && experienceData.UnstructuredData != null)
+        {
+            CollectContentAreaInlineBlockTranslations(
+                experienceData.UnstructuredData,
+                nameof(ExperienceData.UnstructuredData),
+                targetContent.ContentLink,
+                targetCulture,
+                translationItems,
+                tone);
+        }
+    }
+
+    private static void MarkNonLanguageSpecificPropertiesAsLanguageSpecific(IContent content)
+    {
+        foreach (var property in content.Property)
+        {
+            if (!property.IsLanguageSpecific && !property.IsMetaData && !property.IsReadOnly)
+                property.IsLanguageSpecific = true;
         }
     }
 
@@ -373,6 +355,17 @@ public class LanguageVersionCreationService : ILanguageVersionCreationService
         List<TranslationWorkItem> translationItems,
         TranslationTone tone)
     {
+        if (value is ExperienceData experienceData && experienceData.UnstructuredData != null)
+        {
+            CollectContentAreaInlineBlockTranslations(
+                experienceData.UnstructuredData,
+                propertyPath + ".UnstructuredData",
+                contentLink,
+                targetCulture,
+                translationItems,
+                tone);
+        }
+
         if (value is not BlockData block || block.Property == null)
             return;
 
@@ -380,45 +373,139 @@ public class LanguageVersionCreationService : ILanguageVersionCreationService
         {
             var nestedValue = property.Value;
             var nestedPath = propertyPath + "." + property.Name;
-            var selectionFactoryDetected = HasSelectionFactory(block.GetType(), property.Name);
             _logger.LogInformation(
-                "AI translation nested property inspection: block type {BlockType}, property {PropertyPath}, selection factory {SelectionFactory}, CLR attributes {Attributes}, value type {ValueType}",
+                "AI translation nested property inspection: block type {BlockType}, property {PropertyPath}, not translatable {NotTranslatable}, CLR attributes {Attributes}, value type {ValueType}",
                 block.GetType().FullName,
                 nestedPath,
-                selectionFactoryDetected,
+                IsNotTranslatable(property),
                 GetPropertyAttributeNames(block.GetType(), property.Name),
                 nestedValue?.GetType().FullName ?? "<null>");
 
-            if (selectionFactoryDetected || nestedValue == null)
+            if (nestedValue == null)
             {
                 _logger.LogInformation(
                     "AI translation nested property skipped: {PropertyPath}; reason {Reason}",
                     nestedPath,
-                    selectionFactoryDetected ? "selection factory detected" : "value is null");
+                    "value is null");
                 continue;
             }
 
             if (nestedValue is ContentArea)
             {
-                _logger.LogInformation("AI translation nested property skipped: {PropertyPath}; reason structured ContentArea", nestedPath);
+                CollectContentAreaInlineBlockTranslations(
+                    (ContentArea)nestedValue,
+                    nestedPath,
+                    contentLink,
+                    targetCulture,
+                    translationItems,
+                    tone);
                 continue;
             }
 
-            if (TryGetTranslatableText(nestedValue, out var sourceText) && !IsUrl(sourceText))
+            if (!IsNotTranslatable(property))
+            {
+                QueueTranslatableValue(
+                    nestedValue,
+                    nestedPath,
+                    contentLink,
+                    targetCulture,
+                    translationItems,
+                    tone);
+            }
+        }
+    }
+
+    private void QueueTranslatableValue(
+        object? value,
+        string propertyPath,
+        ContentReference contentLink,
+        CultureInfo targetCulture,
+        List<TranslationWorkItem> translationItems,
+        TranslationTone tone)
+    {
+        if (value is LinkItem linkItem)
+        {
+            QueueTranslatableValue(linkItem.Text, propertyPath + ".Text", contentLink, targetCulture, translationItems, tone);
+            QueueTranslatableValue(linkItem.Title, propertyPath + ".Title", contentLink, targetCulture, translationItems, tone);
+            return;
+        }
+
+        if (value is ContentArea contentArea)
+        {
+            CollectContentAreaInlineBlockTranslations(
+                contentArea,
+                propertyPath,
+                contentLink,
+                targetCulture,
+                translationItems,
+                tone);
+            return;
+        }
+
+        if (TryGetTranslatableText(value, out var sourceText) && !IsUrl(sourceText))
+        {
+            if (!translationItems.Any(item =>
+                    item.ContentLink == contentLink
+                    && string.Equals(item.Language, targetCulture.Name, StringComparison.OrdinalIgnoreCase)
+                    && string.Equals(item.PropertyName, propertyPath, StringComparison.Ordinal)
+                    && string.Equals(item.SourceText, sourceText, StringComparison.Ordinal)))
             {
                 translationItems.Add(new TranslationWorkItem(
                     string.Empty,
                     contentLink,
                     targetCulture.Name,
-                    nestedPath,
+                    propertyPath,
                     sourceText,
                     tone));
-                _logger.LogInformation("AI translation nested property queued: {PropertyPath}", nestedPath);
+                _logger.LogInformation("AI translation property queued: {PropertyPath}", propertyPath);
             }
+        }
+
+        if (value is IEnumerable enumerable && value is not string && value is not XhtmlString)
+        {
+            var index = 0;
+            foreach (var item in enumerable)
+            {
+                QueueTranslatableValue(
+                    item,
+                    $"{propertyPath}[{index}]",
+                    contentLink,
+                    targetCulture,
+                    translationItems,
+                    tone);
+                index++;
+            }
+        }
+
+        CollectNestedBlockTranslations(value, propertyPath, contentLink, targetCulture, translationItems, tone);
+    }
+
+    private void CollectContentAreaInlineBlockTranslations(
+        ContentArea contentArea,
+        string propertyPath,
+        ContentReference contentLink,
+        CultureInfo targetCulture,
+        List<TranslationWorkItem> translationItems,
+        TranslationTone tone)
+    {
+        if (contentArea.Items == null)
+            return;
+
+        for (var index = 0; index < contentArea.Items.Count; index++)
+        {
+            var item = contentArea.Items[index];
+            if (item.InlineBlock is not BlockData inlineBlock)
+                continue;
+
+            var inlineBlockPath = $"{propertyPath}[{index}].InlineBlock";
+            _logger.LogInformation(
+                "AI translation inline block discovered: {PropertyPath}; block type {BlockType}",
+                inlineBlockPath,
+                inlineBlock.GetType().FullName);
 
             CollectNestedBlockTranslations(
-                nestedValue,
-                nestedPath,
+                inlineBlock,
+                inlineBlockPath,
                 contentLink,
                 targetCulture,
                 translationItems,
@@ -514,47 +601,139 @@ public class LanguageVersionCreationService : ILanguageVersionCreationService
         {
             if (property.Value is ContentArea contentArea && contentArea.Items != null)
             {
+                TraverseLinkedContentArea(
+                    contentArea,
+                    $"{content.GetType().Name}.{property.Name}",
+                    content,
+                    targetCulture,
+                    visitedGuids,
+                    result,
+                    translationItems,
+                    includeLinkedContents,
+                    useAiTranslation,
+                    tone);
+            }
+
+            if (property.Value is BlockData block)
+            {
+                TraverseNestedBlockContentAreas(
+                    block,
+                    $"{content.GetType().Name}.{property.Name}",
+                    content,
+                    targetCulture,
+                    visitedGuids,
+                    result,
+                    translationItems,
+                    includeLinkedContents,
+                    useAiTranslation,
+                    tone);
+            }
+        }
+    }
+
+    private void TraverseNestedBlockContentAreas(
+        BlockData block,
+        string propertyPath,
+        IContent ownerContent,
+        CultureInfo targetCulture,
+        HashSet<Guid> visitedGuids,
+        LanguageVersionCreationResult result,
+        List<TranslationWorkItem> translationItems,
+        bool includeLinkedContents,
+        bool useAiTranslation,
+        TranslationTone tone)
+    {
+        if (block.Property == null)
+            return;
+
+        foreach (var property in block.Property)
+        {
+            var nestedPath = propertyPath + "." + property.Name;
+            if (property.Value is ContentArea contentArea)
+            {
+                TraverseLinkedContentArea(
+                    contentArea,
+                    nestedPath,
+                    ownerContent,
+                    targetCulture,
+                    visitedGuids,
+                    result,
+                    translationItems,
+                    includeLinkedContents,
+                    useAiTranslation,
+                    tone);
+            }
+            else if (property.Value is BlockData nestedBlock)
+            {
+                TraverseNestedBlockContentAreas(
+                    nestedBlock,
+                    nestedPath,
+                    ownerContent,
+                    targetCulture,
+                    visitedGuids,
+                    result,
+                    translationItems,
+                    includeLinkedContents,
+                    useAiTranslation,
+                    tone);
+            }
+        }
+    }
+
+    private void TraverseLinkedContentArea(
+        ContentArea contentArea,
+        string propertyPath,
+        IContent ownerContent,
+        CultureInfo targetCulture,
+        HashSet<Guid> visitedGuids,
+        LanguageVersionCreationResult result,
+        List<TranslationWorkItem> translationItems,
+        bool includeLinkedContents,
+        bool useAiTranslation,
+        TranslationTone tone)
+    {
+        if (contentArea.Items == null)
+            return;
+
+        _logger.LogInformation(
+            "Traversing content area on {ContentLink}, property {PropertyName}, item count {ItemCount}, target language {Language}",
+            ownerContent.ContentLink,
+            propertyPath,
+            contentArea.Items.Count,
+            targetCulture.Name);
+
+        for (var itemIndex = 0; itemIndex < contentArea.Items.Count; itemIndex++)
+        {
+            var item = contentArea.Items[itemIndex];
+            if (ContentReference.IsNullOrEmpty(item.ContentLink))
+                continue;
+
+            if (item.ContentGuid != Guid.Empty && visitedGuids.Contains(item.ContentGuid))
+                continue;
+
+            IContent? childContent = null;
+            try
+            {
+                var masterLanguage = GetMasterCulture(ownerContent).Name;
+                childContent = GetMasterContentForCloning(item.ContentLink, masterLanguage);
                 _logger.LogInformation(
-                    "Traversing content area on {ContentLink}, property {PropertyName}, item count {ItemCount}, target language {Language}",
-                    content.ContentLink,
-                    property.Name,
-                    contentArea.Items.Count,
+                    "Loaded content area child {ChildContentLink} as master language {MasterLanguage} for target language {TargetLanguage}",
+                    item.ContentLink,
+                    masterLanguage,
                     targetCulture.Name);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to load child content {ContentLink} for language version creation", item.ContentLink);
+            }
 
-                foreach (var item in contentArea.Items)
-                {
-                    if (ContentReference.IsNullOrEmpty(item.ContentLink))
-                        continue;
-
-                    if (item.ContentGuid != Guid.Empty && visitedGuids.Contains(item.ContentGuid))
-                        continue;
-
-                    IContent? childContent = null;
-                    try
-                    {
-                        childContent = GetMasterContentForCloning(
-                            item.ContentLink,
-                            GetMasterCulture(content).Name);
-                        _logger.LogInformation(
-                            "Loaded content area child {ChildContentLink} as master language {MasterLanguage} for target language {TargetLanguage}",
-                            item.ContentLink,
-                            GetMasterCulture(content).Name,
-                            targetCulture.Name);
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogWarning(ex, "Failed to load child content {ContentLink} for language version creation", item.ContentLink);
-                    }
-
-                    if (childContent != null)
-                    {
-                        ProcessNode(childContent, targetCulture, visitedGuids, result, translationItems, includeLinkedContents, useAiTranslation, tone);
-                    }
-                    else
-                    {
-                        _logger.LogInformation("Content area child {ChildContentLink} could not be loaded", item.ContentLink);
-                    }
-                }
+            if (childContent != null)
+            {
+                ProcessNode(childContent, targetCulture, visitedGuids, result, translationItems, includeLinkedContents, useAiTranslation, tone);
+            }
+            else
+            {
+                _logger.LogInformation("Content area child {ChildContentLink} could not be loaded", item.ContentLink);
             }
         }
     }
@@ -621,6 +800,23 @@ public class LanguageVersionCreationService : ILanguageVersionCreationService
                 return false;
         }
     }
+
+    private static bool IsNotTranslatable(PropertyData property) =>
+        property is PropertyDropDownList
+            || property is PropertyUrl
+            || property is PropertyDate
+            || property is PropertyGuid
+            || property is PropertyAppSettings
+            || property is PropertyAppSettingsMultiple
+            || property is PropertyCheckBoxList
+            || property is PropertyLanguage
+            || property is PropertyTimeSpan
+            || property is PropertyBlob
+            || property is PropertySelector;
+
+    private static bool IsExcludedProperty(IContent content, PropertyData property) =>
+        string.Equals(content.ContentLink.ProviderName, "CatalogContent", StringComparison.OrdinalIgnoreCase)
+        && string.Equals(property.Name, "SeoUri", StringComparison.OrdinalIgnoreCase);
 
     private static bool HasSelectionFactory(IContent content, PropertyDefinition propertyDefinition) =>
         HasSelectionFactory(content.GetType(), propertyDefinition.Name);

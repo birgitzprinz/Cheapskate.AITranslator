@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Collections;
 using System.Text.Json;
 using System.Threading.Channels;
 using EPiServer;
@@ -6,6 +7,8 @@ using EPiServer.DataAbstraction;
 using EPiServer.DataAccess;
 using EPiServer.Core;
 using EPiServer.Security;
+using EPiServer.SpecializedProperties;
+using EPiServer.VisualBuilder;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -87,63 +90,87 @@ public sealed class AiTranslationJobQueue : BackgroundService, ITranslationJobQu
             _logger.LogInformation("AI translation batch started: {ItemCount} items", batch.Count);
             var translations = await _translationClient.TranslateAsync(batch, settings, cancellationToken);
             var repository = services.GetRequiredService<IContentRepository>();
-            foreach (var item in batch)
+            foreach (var contentBatch in batch.GroupBy(item => new { item.ContentLink, item.Language }))
             {
-                if (!translations.TryGetValue(item.PropertyName + "|" + item.ContentLink, out var translated))
+                var targetBranch = repository.Get<IContent>(
+                    contentBatch.Key.ContentLink,
+                    new LanguageSelector(contentBatch.Key.Language));
+                targetBranch ??= repository.GetLanguageBranches<IContent>(contentBatch.Key.ContentLink)
+                    .FirstOrDefault(branch => branch is ILocalizable localizable
+                        && localizable.Language.Name.Equals(contentBatch.Key.Language, StringComparison.OrdinalIgnoreCase));
+
+                if (targetBranch == null)
                 {
-                    _logger.LogInformation("AI translation result missing: content {ContentLink}, language {Language}, property {PropertyName}", item.ContentLink, item.Language, item.PropertyName);
+                    _logger.LogWarning(
+                        "AI translation result not applied: target language branch was not found for content {ContentLink}, language {Language}",
+                        contentBatch.Key.ContentLink,
+                        contentBatch.Key.Language);
                     continue;
                 }
 
+                var content = GetWritableClone(targetBranch);
+                var appliedItems = new List<TranslationWorkItem>();
                 try
                 {
-                    var targetBranch = repository.Get<IContent>(
-                        item.ContentLink,
-                        new LanguageSelector(item.Language));
-                    targetBranch ??= repository.GetLanguageBranches<IContent>(item.ContentLink)
-                        .FirstOrDefault(branch => branch is ILocalizable localizable
-                            && localizable.Language.Name.Equals(item.Language, StringComparison.OrdinalIgnoreCase));
-
-                    if (targetBranch == null)
+                    foreach (var item in contentBatch)
                     {
-                        _logger.LogWarning(
-                            "AI translation result not applied: target language branch was not found for content {ContentLink}, language {Language}, property {PropertyName}",
-                            item.ContentLink,
-                            item.Language,
-                            item.PropertyName);
-                        continue;
+                        if (!translations.TryGetValue(item.PropertyName + "|" + item.ContentLink, out var translated))
+                        {
+                            _logger.LogInformation(
+                                "AI translation result missing: content {ContentLink}, language {Language}, property {PropertyName}",
+                                item.ContentLink,
+                                item.Language,
+                                item.PropertyName);
+                            continue;
+                        }
+
+                        if (!TryApplyTranslation(content, item.PropertyName, translated))
+                        {
+                            _logger.LogInformation(
+                                "AI translation result not applied: property path could not be resolved, {PropertyName}",
+                                item.PropertyName);
+                            continue;
+                        }
+
+                        appliedItems.Add(item);
                     }
 
-                    var content = GetWritableClone(targetBranch);
-                    if (!TryGetProperty(content, item.PropertyName, out var property)
-                        || property.IsReadOnly)
-                    {
-                        _logger.LogInformation(
-                            "AI translation result not applied: content {ContentLink}, language {Language}, property {PropertyName}, property found {PropertyFound}, read-only {ReadOnly}",
-                            item.ContentLink,
-                            item.Language,
-                            item.PropertyName,
-                            TryGetProperty(content, item.PropertyName, out _),
-                            property?.IsReadOnly == true);
+                    if (appliedItems.Count == 0)
                         continue;
-                    }
 
-                    property.Value = property.Value is XhtmlString ? new XhtmlString(translated) : translated;
                     repository.Save(content, SaveAction.Save, AccessLevel.NoAccess);
-                    status.Completed++;
-                    _logger.LogInformation("AI translation result applied: content {ContentLink}, language {Language}, property {PropertyName}", item.ContentLink, item.Language, item.PropertyName);
+                    status.Completed += appliedItems.Count;
+                    foreach (var item in appliedItems)
+                    {
+                        _logger.LogInformation("AI translation result applied: content {ContentLink}, language {Language}, property {PropertyName}", item.ContentLink, item.Language, item.PropertyName);
+                    }
                 }
                 catch (Exception ex)
                 {
                     _logger.LogError(
                         ex,
-                        "AI translation result failed for content {ContentLink}, language {Language}, property {PropertyName}; continuing with remaining properties",
-                        item.ContentLink,
-                        item.Language,
-                        item.PropertyName);
+                        "AI translation result failed for content {ContentLink}, language {Language}; continuing with remaining content",
+                        contentBatch.Key.ContentLink,
+                        contentBatch.Key.Language);
                 }
             }
         }
+    }
+
+    private static bool TryApplyTranslation(IContent content, string propertyPath, string translated)
+    {
+        if (propertyPath.Contains('.', StringComparison.Ordinal)
+            || propertyPath.Contains('[', StringComparison.Ordinal))
+        {
+            return TrySetNestedValue(content, propertyPath, translated);
+        }
+
+        if (!TryGetProperty(content, propertyPath, out var property) || property.IsReadOnly)
+            return false;
+
+        property.Value = property.Value is XhtmlString ? new XhtmlString(translated) : translated;
+        property.IsModified = true;
+        return property.IsModified;
     }
 
     private static bool TryGetProperty(IContent content, string propertyPath, out PropertyData property)
@@ -153,26 +180,223 @@ public sealed class AiTranslationJobQueue : BackgroundService, ITranslationJobQu
         if (pathParts.Length == 0)
             return false;
 
-        var properties = content.Property;
+        object current = content;
         for (var index = 0; index < pathParts.Length; index++)
         {
-            var currentProperty = properties[pathParts[index]];
+            var pathPart = pathParts[index];
+            var itemIndexStart = pathPart.IndexOf('[', StringComparison.Ordinal);
+            var propertyName = itemIndexStart >= 0 ? pathPart[..itemIndexStart] : pathPart;
+            var itemIndex = -1;
+            if (itemIndexStart >= 0
+                && pathPart.EndsWith("]", StringComparison.Ordinal)
+                && int.TryParse(pathPart[(itemIndexStart + 1)..^1], out var parsedIndex))
+            {
+                itemIndex = parsedIndex;
+            }
+
+            if (current is ContentAreaItem contentAreaItem)
+            {
+                if (!propertyName.Equals(nameof(ContentAreaItem.InlineBlock), StringComparison.Ordinal)
+                    || itemIndex >= 0
+                    || contentAreaItem.InlineBlock == null)
+                {
+                    return false;
+                }
+
+                current = contentAreaItem.InlineBlock;
+                continue;
+            }
+
+            if (current is ExperienceData experienceData
+                && propertyName.Equals(nameof(ExperienceData.UnstructuredData), StringComparison.Ordinal))
+            {
+                var unstructuredData = experienceData.UnstructuredData;
+                if (unstructuredData == null)
+                    return false;
+
+                current = unstructuredData;
+                if (itemIndex >= 0)
+                {
+                    if (itemIndex >= unstructuredData.Items.Count)
+                        return false;
+
+                    current = unstructuredData.Items[itemIndex];
+                }
+
+                continue;
+            }
+
+            var properties = current switch
+            {
+                IContent contentValue => contentValue.Property,
+                BlockData blockValue => blockValue.Property,
+                _ => null
+            };
+            if (properties == null)
+                return false;
+
+            var currentProperty = properties[propertyName];
             if (currentProperty == null)
                 return false;
 
-            if (index == pathParts.Length - 1)
+            if (index == pathParts.Length - 1 && itemIndex < 0)
             {
                 property = currentProperty;
                 return true;
             }
 
-            if (currentProperty.Value is not BlockData nestedBlock || nestedBlock.Property == null)
-                return false;
-
-            properties = nestedBlock.Property;
+            current = currentProperty.Value!;
+            if (itemIndex >= 0)
+            {
+                if (!TryGetIndexedValue(current, itemIndex, out current))
+                    return false;
+            }
         }
 
         return false;
+    }
+
+    private static bool TrySetNestedValue(IContent content, string propertyPath, string translated)
+    {
+        var pathParts = propertyPath.Split('.', StringSplitOptions.RemoveEmptyEntries);
+        object current = content;
+        PropertyData? rootProperty = null;
+        for (var index = 0; index < pathParts.Length; index++)
+        {
+            var pathPart = pathParts[index];
+            var itemIndexStart = pathPart.IndexOf('[', StringComparison.Ordinal);
+            var propertyName = itemIndexStart >= 0 ? pathPart[..itemIndexStart] : pathPart;
+            var itemIndex = ParseItemIndex(pathPart, itemIndexStart);
+            var isLast = index == pathParts.Length - 1;
+
+            if (current is ContentAreaItem contentAreaItem)
+            {
+                if (!propertyName.Equals(nameof(ContentAreaItem.InlineBlock), StringComparison.Ordinal)
+                    || itemIndex >= 0
+                    || contentAreaItem.InlineBlock == null)
+                    return false;
+
+                current = contentAreaItem.InlineBlock;
+                continue;
+            }
+
+            if (current is ExperienceData experienceData
+                && propertyName.Equals(nameof(ExperienceData.UnstructuredData), StringComparison.Ordinal))
+            {
+                if (experienceData.UnstructuredData == null)
+                    return false;
+
+                current = experienceData.UnstructuredData;
+                if (itemIndex >= 0 && !TryGetIndexedValue(current, itemIndex, out current))
+                    return false;
+                continue;
+            }
+
+            if (itemIndex >= 0 && string.IsNullOrEmpty(propertyName))
+            {
+                if (isLast && current is IList indexedList && itemIndex < indexedList.Count)
+                {
+                    indexedList[itemIndex] = translated;
+                    return MarkRootPropertyChanged(rootProperty);
+                }
+
+                if (!TryGetIndexedValue(current, itemIndex, out current))
+                    return false;
+                continue;
+            }
+
+            var properties = current switch
+            {
+                IContent contentValue => contentValue.Property,
+                BlockData blockValue => blockValue.Property,
+                _ => null
+            };
+            if (properties == null)
+            {
+                if (isLast && current is LinkItem linkItem)
+                {
+                    var linkProperty = typeof(LinkItem).GetProperty(propertyName);
+                    if (linkProperty?.CanWrite != true)
+                        return false;
+
+                    linkProperty.SetValue(linkItem, translated);
+                    return MarkRootPropertyChanged(rootProperty);
+                }
+
+                return false;
+            }
+
+            var currentProperty = properties[propertyName];
+            if (currentProperty == null)
+                return false;
+
+            rootProperty ??= currentProperty;
+
+            current = currentProperty.Value!;
+            if (isLast && itemIndex < 0)
+            {
+                currentProperty.Value = currentProperty.Value is XhtmlString ? new XhtmlString(translated) : translated;
+                currentProperty.IsModified = true;
+                return MarkRootPropertyChanged(rootProperty);
+            }
+
+            if (isLast && itemIndex >= 0 && current is IList list && itemIndex < list.Count)
+            {
+                list[itemIndex] = translated;
+                return MarkRootPropertyChanged(rootProperty);
+            }
+
+            if (itemIndex >= 0 && !TryGetIndexedValue(current, itemIndex, out current))
+                return false;
+        }
+
+        return false;
+    }
+
+    private static bool MarkRootPropertyChanged(PropertyData? rootProperty)
+    {
+        if (rootProperty == null)
+            return false;
+
+        rootProperty.IsModified = true;
+        return rootProperty.IsModified;
+    }
+
+    private static bool TryGetIndexedValue(object? value, int index, out object current)
+    {
+        current = null!;
+        if (value is ContentArea contentArea)
+        {
+            if (index < 0 || index >= contentArea.Items.Count)
+                return false;
+
+            current = contentArea.Items[index];
+            return true;
+        }
+
+        if (value is IList list && index >= 0 && index < list.Count)
+        {
+            current = list[index]!;
+            return current != null;
+        }
+
+        if (value is IEnumerable enumerable)
+        {
+            current = enumerable.Cast<object?>().ElementAtOrDefault(index)!;
+            return current != null;
+        }
+
+        return false;
+    }
+
+    private static int ParseItemIndex(string pathPart, int itemIndexStart)
+    {
+        if (itemIndexStart < 0
+            || !pathPart.EndsWith("]", StringComparison.Ordinal)
+            || !int.TryParse(pathPart[(itemIndexStart + 1)..^1], out var itemIndex))
+            return -1;
+
+        return itemIndex;
     }
 
     private static IReadOnlyList<IReadOnlyList<TranslationWorkItem>> BuildBatches(

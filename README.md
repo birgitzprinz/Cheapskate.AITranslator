@@ -8,6 +8,13 @@ Optimizely CMS 13 add-on for creating draft language versions and optionally tra
 
 This README is the developer and maintainer documentation for the repository. The NuGet package ships a shorter user-facing guide from [nuget/README.md](nuget/README.md).
 
+## Release notes
+
+### 2.0.1
+
+- Added support for translating `ExperienceData`, including nested `UnstructuredData`, inline blocks, and optionally linked shared content.
+- This project uses AI-assisted development alongside human review, testing, and maintenance.
+
 ## Requirements and compatibility
 
 - .NET 10.
@@ -118,7 +125,7 @@ AiTranslationSettingsController.Index POST
 Install the package into the Optimizely CMS 13 web project:
 
 ```powershell
-dotnet add .\YourCmsProject.csproj package Cheapskate.AITranslator --version 2.0.0
+dotnet add .\YourCmsProject.csproj package Cheapskate.AITranslator --version 2.0.1
 dotnet restore .\YourCmsProject.csproj
 dotnet build .\YourCmsProject.csproj
 ```
