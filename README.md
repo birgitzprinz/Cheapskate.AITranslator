@@ -118,7 +118,7 @@ AiTranslationSettingsController.Index POST
 Install the package into the Optimizely CMS web project:
 
 ```powershell
-dotnet add .\YourCmsProject.csproj package Cheapskate.AITranslator --version 1.0.10
+dotnet add .\YourCmsProject.csproj package Cheapskate.AITranslator --version 1.0.11
 dotnet restore .\YourCmsProject.csproj
 dotnet build .\YourCmsProject.csproj
 ```
@@ -186,6 +186,8 @@ Release builds explicitly enable:
 - `DebugSymbols=true`
 
 These settings make the packaged assembly reproducible and optimized while retaining portable debugging symbols in the build output.
+
+This project uses AI-assisted development alongside human review, testing, and maintenance.
 
 ## Testing notes
 

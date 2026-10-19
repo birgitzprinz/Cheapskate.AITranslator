@@ -7,7 +7,7 @@
     <AddRazorSupportForMvc>true</AddRazorSupportForMvc>
     <AssemblyName>Cheapskate.AITranslator</AssemblyName>
     <RootNamespace>Cheapskate.AITranslator</RootNamespace>
-    <AddonVersion>1.0.10</AddonVersion>
+    <AddonVersion>1.0.11</AddonVersion>
     <AddonStage>$(ProjectDir)obj\$(Configuration)\$(TargetFramework)\addon\</AddonStage>
     <AddonZip>$(ProjectDir)bin\$(Configuration)\$(TargetFramework)\$(AssemblyName).zip</AddonZip>
     <NuspecFile>$(ProjectDir)$(AssemblyName).nuspec</NuspecFile>

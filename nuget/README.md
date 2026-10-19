@@ -17,7 +17,7 @@ This package is compatible with CMS versions `>= 12.0.0` and `< 13.0.0`. CMS 13 
 Install the package into the Optimizely CMS web project:
 
 ```powershell
-dotnet add .\YourCmsProject.csproj package Cheapskate.AITranslator --version 1.0.10
+dotnet add .\YourCmsProject.csproj package Cheapskate.AITranslator --version 1.0.11
 dotnet restore .\YourCmsProject.csproj
 dotnet build .\YourCmsProject.csproj
 ```
@@ -53,6 +53,8 @@ Provider credentials are stored in the CMS settings store and are not written to
 6. Optionally choose a translation tone and create the drafts.
 
 Language creation always creates draft versions and never publishes content. Linked content is processed once per language when the option is enabled. AI translation runs in the background after draft creation; the dialog polls the job status and reports completion.
+
+This project uses AI-assisted development alongside human review, testing, and maintenance.
 
 ## License
 

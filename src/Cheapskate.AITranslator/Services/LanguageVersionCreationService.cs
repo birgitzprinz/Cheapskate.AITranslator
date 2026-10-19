@@ -327,7 +327,8 @@ public class LanguageVersionCreationService : ILanguageVersionCreationService
             targetProp.Value = CloneMasterPropertyValue(masterProp.Value);
             if (useAiTranslation
                 && !IsNotTranslatable(targetProp)
-                && !IsExcludedProperty(targetContent, targetProp))
+                && !IsExcludedProperty(targetContent, targetProp)
+                && masterProp.Value is not ContentArea)
             {
                 if (TryGetTranslatableText(masterProp.Value, out var sourceText) && !IsUrl(sourceText))
                 {
